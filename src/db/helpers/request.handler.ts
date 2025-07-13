@@ -4,7 +4,7 @@ import { Request, Response } from "express";
 export async function requestHandler<T>(
     req: Request,
     res: Response,
-    fn: (req: Request, res: Response) => ApiResponse<T>
+    fn: (req: Request, res: Response) => Promise<ApiResponse<T>>
 ) {
     try {
         const queryResult = await fn(req, res);
