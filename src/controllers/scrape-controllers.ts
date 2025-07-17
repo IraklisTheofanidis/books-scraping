@@ -1,23 +1,74 @@
 import { ApiResponse } from "../db/models/ApiResponse";
 import { Request, Response } from "express";
-import puppeteer, { Browser, HTTPResponse } from 'puppeteer';
-import { closeBrowser, initializeBrowser, InitializePage } from "../db/helpers/puppeteer.handler";
+import puppeteer, { Browser, HTTPResponse, Page } from 'puppeteer';
+import { closeBrowser, closePage, initializeBrowser, InitializePage } from "../db/helpers/puppeteer.handler";
 import { sleep } from "../db/helpers/timers";
 import { url } from "inspector";
+import { ScrapeBook, ScrapeUrl } from "../db/models/scrape";
 
-export async function scrapeBook(req: Request, res: Response): Promise<ApiResponse<string>> {
-    return {
-        statusCode: 200,
-        response: 'Scraped book1',
+export async function scrapeBook(req: Request, res: Response): Promise<ApiResponse<any>> {
+    let urlToScrape = req.body?.urlToScrape as string;
+    if (!urlToScrape) throw new Error('urlToScrape is required');
+
+    let browser: Browser | undefined = undefined;
+    let page: Page | undefined = undefined;
+    try {
+        browser = await initializeBrowser(urlToScrape);
+        if (!browser) throw new Error('Failed to load browser');
+        page = await InitializePage(browser, urlToScrape);
+        if (!page) throw new Error('Failed to load page');
+
+        const ratings = ['One', 'Two', 'Three', 'Four', 'Five'];
+        let rating: number | null = null;
+
+        for (let i = 0; i < ratings.length; i++) {
+            const number = ratings[i];
+            const exists = await page.$(`.star-rating.${number}`);
+
+            if (exists) {
+                rating = i + 1;
+                break;
+            }
+        }
+
+        const inStockText = await page.$eval('.instock.availability', el => el.textContent || '');
+        const inStock = inStockText.match(/\d+/)?.[0] || '0';
+
+        const priceText = await page.$eval('.price_color', el =>
+            el.textContent?.trim().replace('£', '') || '');
+
+        const description = await page.$eval('.product_page > p', el => el.textContent?.trim()) ?? '';
+        const title = await page.$eval('h1', el => el.textContent?.trim()) ?? '';
+
+        const book: ScrapeBook = {
+            title,
+            price: priceText ? Number(priceText) : null,
+            inStock: Number(inStock),
+            rating,
+            description,
+        }
+        return {
+            statusCode: 200,
+            response: book,
+        }
+    } catch (error: any) {
+        return {
+            statusCode: 400,
+            error: error.message,
+        }
+    } finally {
+        await closePage(page);
+        await closeBrowser(browser);
     }
 }
 
-export async function scrapeCategories(req: Request, res: Response): Promise<ApiResponse<{ title: string, urlToScrape: string }[]>> {
+export async function scrapeCategories(req: Request, res: Response): Promise<ApiResponse<ScrapeUrl[]>> {
     let browser: Browser | undefined = undefined;
+    let page: Page | undefined = undefined;
     try {
         const browser = await initializeBrowser('https://books.toscrape.com/');
         if (!browser) throw new Error('Failed to load browser');
-        const page = await InitializePage(browser, 'https://books.toscrape.com/');
+        page = await InitializePage(browser, 'https://books.toscrape.com/');
         if (!page) throw new Error('Failed to load page');
         const categories = await page.$$eval('.nav.nav-list > li > ul > li > a', links =>
             links.filter(link => link.textContent && link.getAttribute('href')).map(link => ({
@@ -38,13 +89,13 @@ export async function scrapeCategories(req: Request, res: Response): Promise<Api
         }
 
     } finally {
-        closeBrowser(browser);
+        await closePage(page);
+        await closeBrowser(browser);
     }
 }
 
-export async function scrapeCategoryBooks(req: Request, res: Response): Promise<ApiResponse<{ title: string, urlToScrape: string }[]>> {
+export async function scrapeCategoryBooks(req: Request, res: Response): Promise<ApiResponse<ScrapeUrl[]>> {
     let urlToScrape = req.body?.urlToScrape as string;
-
     if (!urlToScrape) throw new Error('urlToScrape is required');
 
     let browser: Browser | undefined = undefined;
@@ -53,7 +104,7 @@ export async function scrapeCategoryBooks(req: Request, res: Response): Promise<
         const browser = await initializeBrowser(urlToScrape);
         if (!browser) throw new Error('Failed to load page');
         // These two lines above are the same.
-        let books: { title: string, urlToScrape: string }[] = [];
+        let books: ScrapeUrl[] = [];
         let running = true;
 
         while (running) {
@@ -72,6 +123,7 @@ export async function scrapeCategoryBooks(req: Request, res: Response): Promise<
 
             books = [...books, ...pageBooks];
 
+            await closePage(page);
             if (!pageBooks.length) {
                 running = false;
             }
@@ -83,7 +135,7 @@ export async function scrapeCategoryBooks(req: Request, res: Response): Promise<
 
         return {
             statusCode: 200,
-            response: books
+            response: books,
         }
     } catch (error: any) {
         return {
@@ -91,7 +143,7 @@ export async function scrapeCategoryBooks(req: Request, res: Response): Promise<
             error: error.message,
         }
     } finally {
-        closeBrowser(browser);
+        await closeBrowser(browser);
     }
 
 }

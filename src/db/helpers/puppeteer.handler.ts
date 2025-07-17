@@ -7,6 +7,12 @@ export const initializeBrowser = async (url: string): Promise<Browser | undefine
     return browser;
 }
 
+
+export const closeBrowser = async (browser?: Browser): Promise<any> => {
+    if (!browser) return;
+    await browser.close();
+    console.log('Browser closed successfully');
+}
 export const InitializePage = async (browser: Browser, url: string): Promise<Page | undefined> => {
     const page = await browser.newPage();
     await page.setViewport({ width: 1600, height: 1024 });
@@ -15,8 +21,8 @@ export const InitializePage = async (browser: Browser, url: string): Promise<Pag
     return page;
 }
 
-export const closeBrowser = async (browser?: Browser): Promise<any> => {
-    if (!browser) return;
-    await browser.close();
-    console.log('Browser closed successfully');
+export const closePage = async (page?: Page): Promise<any> => {
+    if (!page) return;
+    await page.close();
+    console.log('Page closed successfully');
 }

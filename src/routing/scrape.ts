@@ -5,7 +5,7 @@ import { scrapeBook, scrapeCategories, scrapeCategoryBooks } from "../controller
 const scrapeRouter = Router();
 
 scrapeRouter
-    .route('/books/:id')
+    .route('/book')
     .post((req, res) => requestHandler(req, res, scrapeBook))
 
 scrapeRouter
