@@ -2,6 +2,8 @@ import express from 'express';
 import routes from './routing/root';
 
 const app = express();
+app.use(express.json({ limit: "75mb" }));
+
 const port = 3000;
 
 app.get('/', (req, res) => {
