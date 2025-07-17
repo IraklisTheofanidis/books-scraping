@@ -1,12 +1,8 @@
 import { Router } from "express";
 import { requestHandler } from "../db/helpers/request.handler";
-import { scrapeBook, scrapeCategories, scrapeBooks, scrapeCategoryBooks } from "../controllers/scrape-controllers";
+import { scrapeBook, scrapeCategories, scrapeCategoryBooks } from "../controllers/scrape-controllers";
 
 const scrapeRouter = Router();
-
-scrapeRouter
-    .route('/books')
-    .post((req, res) => requestHandler(req, res, scrapeBooks))
 
 scrapeRouter
     .route('/books/:id')

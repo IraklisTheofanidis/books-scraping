@@ -3,13 +3,7 @@ import { Request, Response } from "express";
 import puppeteer, { Browser, HTTPResponse } from 'puppeteer';
 import { closeBrowser, initializeBrowser, InitializePage } from "../db/helpers/puppeteer.handler";
 import { sleep } from "../db/helpers/timers";
-
-export async function scrapeBooks(req: Request, res: Response): Promise<ApiResponse<string[]>> {
-    return {
-        statusCode: 200,
-        response: ['book1', 'book2', 'book3']
-    }
-}
+import { url } from "inspector";
 
 export async function scrapeBook(req: Request, res: Response): Promise<ApiResponse<string>> {
     return {
@@ -50,6 +44,7 @@ export async function scrapeCategories(req: Request, res: Response): Promise<Api
 
 export async function scrapeCategoryBooks(req: Request, res: Response): Promise<ApiResponse<{ title: string, urlToScrape: string }[]>> {
     let urlToScrape = req.body?.urlToScrape as string;
+
     if (!urlToScrape) throw new Error('urlToScrape is required');
 
     let browser: Browser | undefined = undefined;
@@ -65,10 +60,14 @@ export async function scrapeCategoryBooks(req: Request, res: Response): Promise<
             const page = await InitializePage(browser, urlToScrape);
             if (!page) throw new Error('Failed to load page');
             const pageBooks = await page.$$eval('ol > li > article > h3 > a', links =>
-                links.filter(link => link.textContent && link.getAttribute('href')).map(link => ({
-                    title: link.textContent!.trim(),
-                    urlToScrape: new URL(link.getAttribute('href')!, window.location.origin).href,
-                }))
+                links.filter(link => {
+                    return link.textContent && link.getAttribute('href');
+                }).map(link => {
+                    return {
+                        title: link.textContent!.trim(),
+                        urlToScrape: new URL(link.getAttribute('href')!, window.location.href).href,
+                    }
+                })
             ) ?? [];
 
             books = [...books, ...pageBooks];
