@@ -1,6 +1,6 @@
 import puppeteer, { Browser, Page } from 'puppeteer';
 
-export const initializeBrowser = async (url: string): Promise<Browser | undefined> => {
+export const initializeBrowser = async (): Promise<Browser | undefined> => {
     const browser = await puppeteer.launch({
         executablePath: 'C:\\Users\\Hercules\\.cache\\puppeteer\\chrome\\win64-138.0.7204.157\\chrome-win64\\chrome.exe',
     });
