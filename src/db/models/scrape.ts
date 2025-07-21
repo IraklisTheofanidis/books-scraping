@@ -3,10 +3,14 @@ export interface ScrapeUrl {
     urlToScrape: string;
 }
 
-export interface ScrapeBook{
+export interface ScrapeBook {
     title: string;
     price: number | null;
     inStock: number;
     rating: number | null;
     description: string;
+}
+
+export interface ScrapeDatabase {
+    [category: string]: ScrapeBook[];
 }

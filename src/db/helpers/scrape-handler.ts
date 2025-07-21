@@ -25,11 +25,15 @@ export const scrapeCategoryBooksHandler = async (page: Page): Promise<ScrapeUrl[
 
 export const scrapeBookHandler = async (page: Page): Promise<ScrapeBook> => {
     const ratings = ['One', 'Two', 'Three', 'Four', 'Five'];
-    let rating: number | null = null;
 
+    const title = (await page.$('h1'))
+        ? await page.$eval('h1', el => el.textContent?.trim()) ?? ''
+        : '';
+
+    let rating = null;
     for (let i = 0; i < ratings.length; i++) {
         const number = ratings[i];
-        const exists = await page.$(`.star-rating.${number}`);
+        const exists = await page.$(`.product_main .star-rating.${number}`);
 
         if (exists) {
             rating = i + 1;
@@ -37,14 +41,21 @@ export const scrapeBookHandler = async (page: Page): Promise<ScrapeBook> => {
         }
     }
 
-    const inStockText = await page.$eval('.instock.availability', el => el.textContent || '');
+    const inStockEl = await page.$('.instock.availability');
+    const inStockText = inStockEl
+        ? await page.evaluate(el => el.textContent || '', inStockEl)
+        : '';
     const inStock = inStockText.match(/\d+/)?.[0] || '0';
 
-    const priceText = await page.$eval('.price_color', el =>
-        el.textContent?.trim().replace('£', '') || '');
+    // Price (safe version)
+    const priceEl = await page.$('.price_color');
+    const priceText = priceEl
+        ? await page.evaluate(el => el.textContent?.trim().replace('£', ''), priceEl)
+        : '';
 
-    const description = await page.$eval('.product_page > p', el => el.textContent?.trim()) ?? '';
-    const title = await page.$eval('h1', el => el.textContent?.trim()) ?? '';
+    const description = (await page.$('.product_page > p'))
+        ? await page.$eval('.product_page > p', el => el.textContent?.trim()) ?? ''
+        : '';
 
     const book: ScrapeBook = {
         title,
