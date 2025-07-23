@@ -23,7 +23,8 @@ export const scrapeCategoryBooksHandler = async (page: Page): Promise<ScrapeUrl[
     ) ?? [];
 }
 
-export const scrapeBookHandler = async (page: Page): Promise<ScrapeBook> => {
+export const scrapeBookHandler = async (page: Page): Promise<ScrapeBook | undefined> => {
+    if (!page) return;
     const ratings = ['One', 'Two', 'Three', 'Four', 'Five'];
 
     const title = (await page.$('h1'))

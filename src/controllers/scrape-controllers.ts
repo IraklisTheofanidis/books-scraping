@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Browser, Page } from 'puppeteer';
+import { sendErrorMailToAdmins } from "../db/helpers/mailer.handler";
 import { closeBrowser, closePage, initializeBrowser, InitializePage } from "../db/helpers/puppeteer.handler";
 import { scrapeCategoriesHandler, scrapeCategoryBooksHandler } from "../db/helpers/scrape-handler";
 import { sleep } from "../db/helpers/timers";
@@ -18,6 +19,8 @@ export async function scrapeBook(req: Request, res: Response): Promise<ApiRespon
         if (!browser) throw new Error('Failed to load browser');
 
         page = await InitializePage(browser, urlToScrape);
+        console.log(page);
+
         if (!page) throw new Error('Failed to load page');
 
         const book = await scrapeBookHandler(page);
@@ -26,6 +29,7 @@ export async function scrapeBook(req: Request, res: Response): Promise<ApiRespon
             response: book,
         }
     } catch (error: any) {
+        await sendErrorMailToAdmins(req, error);
         return {
             statusCode: 400,
             error: error.message,
@@ -54,6 +58,7 @@ export async function scrapeCategories(req: Request, res: Response): Promise<Api
         }
 
     } catch (error: any) {
+        await sendErrorMailToAdmins(req, error);
         return {
             statusCode: 400,
             error: error.message,
@@ -99,6 +104,7 @@ export async function scrapeCategoryBooks(req: Request, res: Response): Promise<
             response: books,
         }
     } catch (error: any) {
+        await sendErrorMailToAdmins(req, error);
         return {
             statusCode: 400,
             error: error.message,
@@ -138,7 +144,7 @@ export async function scrapeAllDatabase(req: Request, res: Response): Promise<Ap
 
                 const pageBooks = await scrapeCategoryBooksHandler(categoryPage);
                 await closePage(categoryPage);
-                
+
                 if (!pageBooks.length) {
                     running = false;
                 }
@@ -149,6 +155,7 @@ export async function scrapeAllDatabase(req: Request, res: Response): Promise<Ap
                     if (!bookPage) throw new Error('Failed to load page');
 
                     const book = await scrapeBookHandler(bookPage);
+                    if (!book) continue;
                     await closePage(bookPage);
                     database[category.title].push(book);
                 }
@@ -164,6 +171,7 @@ export async function scrapeAllDatabase(req: Request, res: Response): Promise<Ap
             response: database,
         }
     } catch (error: any) {
+        await sendErrorMailToAdmins(req, error);
         return {
             statusCode: 400,
             error: error.message,
