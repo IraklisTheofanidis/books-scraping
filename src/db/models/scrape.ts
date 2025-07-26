@@ -9,8 +9,14 @@ export interface ScrapeBook {
     inStock: number;
     rating: number | null;
     description: string;
+    imgSrc: string;
+    scrapedUrl: string;
 }
 
 export interface ScrapeDatabase {
-    [category: string]: ScrapeBook[];
+    [category: string]: {
+        scrapedUrl: string;
+        name: string;
+        books: ScrapeBook[];
+    }
 }

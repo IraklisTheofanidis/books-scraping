@@ -23,7 +23,7 @@ export const scrapeCategoryBooksHandler = async (page: Page): Promise<ScrapeUrl[
     ) ?? [];
 }
 
-export const scrapeBookHandler = async (page: Page): Promise<ScrapeBook | undefined> => {
+export const scrapeBookHandler = async (page: Page, url: string): Promise<ScrapeBook | undefined> => {
     if (!page) return;
     const ratings = ['One', 'Two', 'Three', 'Four', 'Five'];
 
@@ -58,12 +58,23 @@ export const scrapeBookHandler = async (page: Page): Promise<ScrapeBook | undefi
         ? await page.$eval('.product_page > p', el => el.textContent?.trim()) ?? ''
         : '';
 
+    const baseUrl = page.url(); // or hardcode like: 'https://example.com'
+
+    const imgSrc = (await page.$('.carousel-inner img'))
+        ? new URL(
+            await page.$eval('.carousel-inner img', el => el.getAttribute('src') ?? ''),
+            baseUrl
+        ).href
+        : '';
+
     const book: ScrapeBook = {
         title,
         price: priceText ? Number(priceText) : null,
         inStock: Number(inStock),
         rating,
         description,
+        scrapedUrl: url,
+        imgSrc,
     };
 
     return book;

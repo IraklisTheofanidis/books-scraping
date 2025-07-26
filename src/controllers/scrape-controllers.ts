@@ -23,7 +23,7 @@ export async function scrapeBook(req: Request, res: Response): Promise<ApiRespon
 
         if (!page) throw new Error('Failed to load page');
 
-        const book = await scrapeBookHandler(page);
+        const book = await scrapeBookHandler(page, urlToScrape);
         return {
             statusCode: 200,
             response: book,
@@ -132,7 +132,11 @@ export async function scrapeAllDatabase(req: Request, res: Response): Promise<Ap
         const database: ScrapeDatabase = {};
 
         for (const category of categories) {
-            database[category.title] = [];
+            database[category.title] = {
+                scrapedUrl: category.urlToScrape,
+                name: category.title,
+                books: [],
+            };
             console.log('Scraping category: ', category.title);
 
             urlToScrape = category.urlToScrape;
@@ -154,16 +158,16 @@ export async function scrapeAllDatabase(req: Request, res: Response): Promise<Ap
                     const bookPage = await InitializePage(browser, urlToScrape);
                     if (!bookPage) throw new Error('Failed to load page');
 
-                    const book = await scrapeBookHandler(bookPage);
+                    const book = await scrapeBookHandler(bookPage, urlToScrape);
                     if (!book) continue;
                     await closePage(bookPage);
-                    database[category.title].push(book);
+                    database[category.title].books.push(book);
                 }
                 urlToScrape = urlToScrape.replace(/(index\.html|page-\d+\.html)/, `page-${i}.html`);
-                await sleep(3000);
+                // await sleep(3000);
             }
             running = true;
-            console.log(`${category.title} books: ${database[category.title].length}`);
+            console.log(`${category.title} books: ${database[category.title].books.length}`);
         }
 
         return {
