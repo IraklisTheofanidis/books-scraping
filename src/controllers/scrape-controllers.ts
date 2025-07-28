@@ -98,35 +98,34 @@ export async function scrapeCategories(req: Request, res: Response): Promise<Api
 }
 
 export async function scrapeCategoryBooks(req: Request, res: Response): Promise<ApiResponse<Book[]>> {
-    let urlToScrape = req.body?.urlToScrape as string;
-    if (!urlToScrape) throw new Error('urlToScrape is required');
+    let categoryUrlToScrape = req.body?.urlToScrape as string;
+    if (!categoryUrlToScrape) throw new Error('urlToScrape is required');
     let browser: Browser | undefined = undefined;
     const dbClient = await db.pool.connect();
     let i = 1;
     try {
-        const categoryId = await getCategoryIdByUrlToScrape(dbClient, urlToScrape);
+        const categoryId = await getCategoryIdByUrlToScrape(dbClient, categoryUrlToScrape);
         if (!categoryId) throw new Error('This category doesnt exist in database!');
         const browser = await initializeBrowser();
         if (!browser) throw new Error('Failed to load page');
         let books: Book[] = [];
-        let running = true;
 
-        while (running) {
-            const page = await InitializePage(browser, urlToScrape);
+        while (true) {
+            const page = await InitializePage(browser, categoryUrlToScrape);
             if (!page) throw new Error('Failed to load page');
             const bookUrlsToScrape = await scrapeCategoryBooksHandler(page);
 
             await closePage(page);
             if (!bookUrlsToScrape.length) {
-                running = false;
+                break;
             }
 
             for (const bookToScrape of bookUrlsToScrape) {
-                urlToScrape = bookToScrape.urlToScrape;
-                const bookPage = await InitializePage(browser, urlToScrape);
+                const bookUrlToScrape = bookToScrape.urlToScrape
+                const bookPage = await InitializePage(browser, bookUrlToScrape);
                 if (!bookPage) throw new Error('Failed to load page');
 
-                const scrapedBook = await scrapeBookHandler(bookPage, urlToScrape);
+                const scrapedBook = await scrapeBookHandler(bookPage, bookUrlToScrape);
                 if (!scrapedBook) continue;
                 await closePage(bookPage);
                 const newBook = await addScrapedBook(dbClient, scrapedBook, categoryId);
@@ -135,8 +134,8 @@ export async function scrapeCategoryBooks(req: Request, res: Response): Promise<
             }
 
             i++;
-            urlToScrape = urlToScrape.replace(/(index\.html|page-\d+\.html)/, `page-${i}.html`);
-            await sleep(3000);
+            categoryUrlToScrape = categoryUrlToScrape.replace(/(index\.html|page-\d+\.html)/, `page-${i}.html`);
+            // await sleep(3000);
         }
 
 
@@ -162,7 +161,6 @@ export async function scrapeAllDatabase(req: Request, res: Response): Promise<Ap
     let urlToScrape = 'https://books.toscrape.com/';
     let browser: Browser | undefined = undefined;
     const dbClient = await db.pool.connect();
-    console.log(dbClient);
 
     try {
         browser = await initializeBrowser();
@@ -185,31 +183,33 @@ export async function scrapeAllDatabase(req: Request, res: Response): Promise<Ap
             };
             console.log('Scraping category: ', category.title);
 
-            urlToScrape = category.urlToScrape;
             let i = 1;
 
-            while (running) {
-                const categoryPage = await InitializePage(browser, urlToScrape);
+            let categoryUrlToScape = category.urlToScrape;
+            while (true) {
+                const categoryPage = await InitializePage(browser, categoryUrlToScape);
                 if (!categoryPage) throw new Error('Failed to load page');
 
                 const pageBooks = await scrapeCategoryBooksHandler(categoryPage);
                 await closePage(categoryPage);
 
                 if (!pageBooks.length) {
-                    running = false;
+                    break;
                 }
 
                 for (const book1 of pageBooks) {
-                    urlToScrape = book1.urlToScrape;
-                    const bookPage = await InitializePage(browser, urlToScrape);
+                    const bookUrlToScrape = book1.urlToScrape;
+                    const bookPage = await InitializePage(browser, bookUrlToScrape);
                     if (!bookPage) throw new Error('Failed to load page');
 
-                    const book = await scrapeBookHandler(bookPage, urlToScrape);
+                    const book = await scrapeBookHandler(bookPage, bookUrlToScrape);
                     if (!book) continue;
                     await closePage(bookPage);
                     database[category.title].books.push(book);
                 }
-                urlToScrape = urlToScrape.replace(/(index\.html|page-\d+\.html)/, `page-${i}.html`);
+                i++;
+                categoryUrlToScape = categoryUrlToScape.replace(/(index\.html|page-\d+\.html)/, `page-${i}.html`);
+
                 // await sleep(3000);
             }
             running = true;
