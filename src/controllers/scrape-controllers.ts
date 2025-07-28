@@ -5,12 +5,18 @@ import { closeBrowser, closePage, initializeBrowser, InitializePage } from "../d
 import { scrapeCategoriesHandler, scrapeCategoryBooksHandler } from "../db/helpers/scrape-handler";
 import { sleep } from "../db/helpers/timers";
 import { ApiResponse } from "../db/models/ApiResponse";
-import { ScrapeDatabase, ScrapeUrl } from "../db/models/scrape";
+import { ScrapeBook, ScrapeDatabase, ScrapeUrl } from "../db/models/scrape";
 import { scrapeBookHandler } from './../db/helpers/scrape-handler';
+import db from "../db/database";
+import { addAllScrapedCategoriesToDatabase, addAllScrapedDataToDatabase } from "../db/helpers/scrape-data-to-database-handler";
+import { addScrapedBook, addScrapedCategory, getCategoryIdByTitle, getCategoryIdByUrlToScrape } from "../db/queries/scrape-queries";
+import { Category } from "../db/models/category";
+import { Book } from "../db/models/book";
 
-export async function scrapeBook(req: Request, res: Response): Promise<ApiResponse<any>> {
+export async function scrapeBook(req: Request, res: Response): Promise<ApiResponse<Book>> {
     let urlToScrape = req.body?.urlToScrape as string;
     if (!urlToScrape) throw new Error('urlToScrape is required');
+    const dbClient = await db.pool.connect();
 
     let browser: Browser | undefined = undefined;
     let page: Page | undefined = undefined;
@@ -19,30 +25,45 @@ export async function scrapeBook(req: Request, res: Response): Promise<ApiRespon
         if (!browser) throw new Error('Failed to load browser');
 
         page = await InitializePage(browser, urlToScrape);
-        console.log(page);
 
         if (!page) throw new Error('Failed to load page');
 
         const book = await scrapeBookHandler(page, urlToScrape);
+        if (!book) throw new Error('Failed to scrape book');
+        dbClient.query('BEGIN');
+        const categoryName = book.categoryName;
+        let categoryId = await getCategoryIdByTitle(dbClient, categoryName);
+        if (!categoryId) {
+            const category = (await addScrapedCategory(dbClient, book.categoryName))
+            if (!category) throw new Error('Failed to add category');
+            categoryId = category.id;
+        }
+        const newBook = await addScrapedBook(dbClient, book, categoryId);
+
+        dbClient.query('COMMIT');
         return {
             statusCode: 200,
-            response: book,
+            response: newBook,
         }
     } catch (error: any) {
+        dbClient.query('ROLLBACK');
         await sendErrorMailToAdmins(req, error);
         return {
             statusCode: 400,
             error: error.message,
         }
     } finally {
+        dbClient.release();
         await closePage(page);
         await closeBrowser(browser);
     }
 }
 
-export async function scrapeCategories(req: Request, res: Response): Promise<ApiResponse<ScrapeUrl[]>> {
+export async function scrapeCategories(req: Request, res: Response): Promise<ApiResponse<Category[]>> {
     let browser: Browser | undefined = undefined;
     let page: Page | undefined = undefined;
+
+    const dbClient = await db.pool.connect();
     try {
         const browser = await initializeBrowser();
         if (!browser) throw new Error('Failed to load browser');
@@ -50,7 +71,11 @@ export async function scrapeCategories(req: Request, res: Response): Promise<Api
         page = await InitializePage(browser, 'https://books.toscrape.com/');
         if (!page) throw new Error('Failed to load page');
 
-        const categories = await scrapeCategoriesHandler(page);
+        const scrapedCategories = await scrapeCategoriesHandler(page);
+
+        dbClient.query('BEGIN');
+        const categories = await addAllScrapedCategoriesToDatabase(dbClient, scrapedCategories);
+        dbClient.query('COMMIT');
 
         return {
             statusCode: 200,
@@ -58,6 +83,7 @@ export async function scrapeCategories(req: Request, res: Response): Promise<Api
         }
 
     } catch (error: any) {
+        dbClient.query('ROLLBACK');
         await sendErrorMailToAdmins(req, error);
         return {
             statusCode: 400,
@@ -65,34 +91,49 @@ export async function scrapeCategories(req: Request, res: Response): Promise<Api
         }
 
     } finally {
+        dbClient.release();
         await closePage(page);
         await closeBrowser(browser);
     }
 }
 
-export async function scrapeCategoryBooks(req: Request, res: Response): Promise<ApiResponse<ScrapeUrl[]>> {
+export async function scrapeCategoryBooks(req: Request, res: Response): Promise<ApiResponse<Book[]>> {
     let urlToScrape = req.body?.urlToScrape as string;
     if (!urlToScrape) throw new Error('urlToScrape is required');
-
     let browser: Browser | undefined = undefined;
+    const dbClient = await db.pool.connect();
     let i = 1;
     try {
+        const categoryId = await getCategoryIdByUrlToScrape(dbClient, urlToScrape);
+        if (!categoryId) throw new Error('This category doesnt exist in database!');
         const browser = await initializeBrowser();
         if (!browser) throw new Error('Failed to load page');
-        let books: ScrapeUrl[] = [];
+        let books: Book[] = [];
         let running = true;
 
         while (running) {
             const page = await InitializePage(browser, urlToScrape);
             if (!page) throw new Error('Failed to load page');
-            const pageBooks = await scrapeCategoryBooksHandler(page);
-
-            books = [...books, ...pageBooks];
+            const bookUrlsToScrape = await scrapeCategoryBooksHandler(page);
 
             await closePage(page);
-            if (!pageBooks.length) {
+            if (!bookUrlsToScrape.length) {
                 running = false;
             }
+
+            for (const bookToScrape of bookUrlsToScrape) {
+                urlToScrape = bookToScrape.urlToScrape;
+                const bookPage = await InitializePage(browser, urlToScrape);
+                if (!bookPage) throw new Error('Failed to load page');
+
+                const scrapedBook = await scrapeBookHandler(bookPage, urlToScrape);
+                if (!scrapedBook) continue;
+                await closePage(bookPage);
+                const newBook = await addScrapedBook(dbClient, scrapedBook, categoryId);
+                if (!newBook) continue;
+                books.push(newBook);
+            }
+
             i++;
             urlToScrape = urlToScrape.replace(/(index\.html|page-\d+\.html)/, `page-${i}.html`);
             await sleep(3000);
@@ -104,12 +145,14 @@ export async function scrapeCategoryBooks(req: Request, res: Response): Promise<
             response: books,
         }
     } catch (error: any) {
+        dbClient.query('ROLLBACK');
         await sendErrorMailToAdmins(req, error);
         return {
             statusCode: 400,
             error: error.message,
         }
     } finally {
+        dbClient.release();
         await closeBrowser(browser);
     }
 
@@ -118,6 +161,9 @@ export async function scrapeCategoryBooks(req: Request, res: Response): Promise<
 export async function scrapeAllDatabase(req: Request, res: Response): Promise<ApiResponse<ScrapeDatabase>> {
     let urlToScrape = 'https://books.toscrape.com/';
     let browser: Browser | undefined = undefined;
+    const dbClient = await db.pool.connect();
+    console.log(dbClient);
+
     try {
         browser = await initializeBrowser();
         if (!browser) throw new Error('Failed to load browser');
@@ -168,19 +214,26 @@ export async function scrapeAllDatabase(req: Request, res: Response): Promise<Ap
             }
             running = true;
             console.log(`${category.title} books: ${database[category.title].books.length}`);
+
         }
+        console.log('Adding to database..');
+        await dbClient.query('BEGIN');
+        await addAllScrapedDataToDatabase(dbClient, database);
+        await dbClient.query('COMMIT');
 
         return {
             statusCode: 200,
             response: database,
         }
     } catch (error: any) {
+        await dbClient.query('ROLLBACK');
         await sendErrorMailToAdmins(req, error);
         return {
             statusCode: 400,
             error: error.message,
         }
     } finally {
+        dbClient.release();
         await closeBrowser(browser);
     }
 

@@ -11,6 +11,7 @@ export interface ScrapeBook {
     description: string;
     imgSrc: string;
     scrapedUrl: string;
+    categoryName: string;
 }
 
 export interface ScrapeDatabase {

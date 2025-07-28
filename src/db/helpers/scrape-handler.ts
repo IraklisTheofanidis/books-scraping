@@ -67,6 +67,10 @@ export const scrapeBookHandler = async (page: Page, url: string): Promise<Scrape
         ).href
         : '';
 
+    const categoryName = (await page.$('.breadcrumb li:nth-child(3)'))
+        ? await page.$eval('.breadcrumb li:nth-child(3)', el => el.textContent?.trim() ?? '')
+        : '';
+
     const book: ScrapeBook = {
         title,
         price: priceText ? Number(priceText) : null,
@@ -75,6 +79,7 @@ export const scrapeBookHandler = async (page: Page, url: string): Promise<Scrape
         description,
         scrapedUrl: url,
         imgSrc,
+        categoryName
     };
 
     return book;
