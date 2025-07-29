@@ -1,7 +1,8 @@
 import { Category } from './../models/category';
 import { PoolClient } from "pg";
 import { ScrapeBook, ScrapeDatabase, ScrapeUrl } from "../models/scrape";
-import { addScrapedBook, addScrapedCategory, getCategoryIdByTitle } from "../queries/scrape-queries";
+import { addScrapedBook, addScrapedCategory, } from "../queries/scrape-queries";
+import { getCategoryIdByTitle } from '../queries/category-queries';
 
 export const addAllScrapedDataToDatabase = async (dbClient: PoolClient, data: ScrapeDatabase) => {
     for (const [categoryKey, categoryData] of Object.entries(data)) {

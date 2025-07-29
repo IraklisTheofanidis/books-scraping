@@ -25,27 +25,3 @@ export const addScrapedBook = async (dbClient: PoolClient, book: ScrapeBook, cat
         [book.title, book.price, book.inStock, book.rating, book.description, book.imgSrc, book.scrapedUrl, categoryId])
     return response.rows[0];
 }
-
-export const getCategoryIdByTitle = async (
-    dbClient: PoolClient,
-    title: string
-): Promise<number | null> => {
-    const result = await dbClient.query<{ id: number }>(
-        'SELECT id FROM categories WHERE title = $1 LIMIT 1',
-        [title]
-    );
-
-    return result.rows[0]?.id ?? null;
-};
-
-export const getCategoryIdByUrlToScrape = async (
-    dbClient: PoolClient,
-    urlToScrape: string
-): Promise<number | null> => {
-    const result = await dbClient.query<{ id: number }>(
-        'SELECT id FROM categories WHERE scraped_url = $1 LIMIT 1',
-        [urlToScrape]
-    );
-
-    return result.rows[0]?.id ?? null;
-};

@@ -9,9 +9,10 @@ import { ScrapeBook, ScrapeDatabase, ScrapeUrl } from "../db/models/scrape";
 import { scrapeBookHandler } from './../db/helpers/scrape-handler';
 import db from "../db/database";
 import { addAllScrapedCategoriesToDatabase, addAllScrapedDataToDatabase } from "../db/helpers/scrape-data-to-database-handler";
-import { addScrapedBook, addScrapedCategory, getCategoryIdByTitle, getCategoryIdByUrlToScrape } from "../db/queries/scrape-queries";
+import { addScrapedBook, addScrapedCategory,  } from "../db/queries/scrape-queries";
 import { Category } from "../db/models/category";
 import { Book } from "../db/models/book";
+import { getCategoryIdByTitle, getCategoryIdByUrlToScrape } from "../db/queries/category-queries";
 
 export async function scrapeBook(req: Request, res: Response): Promise<ApiResponse<Book>> {
     let urlToScrape = req.body?.urlToScrape as string;
