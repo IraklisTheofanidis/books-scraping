@@ -2,14 +2,32 @@ import db from "../db/database";
 import { sendErrorMailToAdmins } from "../db/helpers/mailer.handler";
 import { ApiResponse } from "../db/models/ApiResponse";
 import { Request, Response } from "express";
-import { getBookByUuid } from "../db/queries/book-queries";
+import { getAllBooks, getBookByUuid } from "../db/queries/book-queries";
 import { Book } from "../db/models/book";
 import { validate as isValidUUID, v4 as uuidv4 } from 'uuid';
 
-export async function getBooks(req: Request, res: Response): Promise<ApiResponse<string[]>> {
-    return {
-        statusCode: 200,
-        response: ['book1', 'book2', 'book3']
+export async function getBooks(req: Request, res: Response): Promise<ApiResponse<Book[]>> {
+    const dbClient = await db.pool.connect();
+
+    try {
+        dbClient.query('BEGIN');
+        const books = await getAllBooks(dbClient);
+        dbClient.query('COMMIT');
+
+        return {
+            statusCode: 200,
+            response: books,
+        }
+
+    } catch (error: any) {
+        dbClient.query('ROLLBACK');
+        await sendErrorMailToAdmins(req, error);
+        return {
+            statusCode: 400,
+            error: error.message,
+        }
+    } finally {
+        dbClient.release();
     }
 }
 

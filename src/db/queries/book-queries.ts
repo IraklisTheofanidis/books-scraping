@@ -12,3 +12,8 @@ export const getBookByUuid = async (
 
     return result.rows[0] ?? null;
 };
+
+export const getAllBooks = async (dbClient: PoolClient): Promise<Book[]> => {
+    const result = await dbClient.query<Book>('SELECT * FROM books')
+    return result.rows;
+}
