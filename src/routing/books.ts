@@ -10,7 +10,7 @@ booksRouter
     .post((req, res) => requestHandler(req, res, createBook));
 
 booksRouter
-    .route('/:id')
+    .route('/:uuid')
     .get(async (req, res) => requestHandler(req, res, getBook))
     .put((req, res) => requestHandler(req, res, updateBook))
     .delete((req, res) => requestHandler(req, res, deleteBook));
