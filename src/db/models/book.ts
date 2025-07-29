@@ -11,9 +11,21 @@ export interface Book {
 }
 
 export interface BookQueryParams {
-    categoryUUid?: string
+    categoryUUid?: string;
+    minPrice?: string;
+    maxPrice?: string;
+    price?: string;
+    minStock?: string;
+    maxStock?: string;
+    stock?: string;
 }
 
 export interface BookFilterParams {
     categoryId?: number;
+    minPrice?: number;
+    maxPrice?: number;
+    price?: number;
+    minStock?: number;
+    maxStock?: number;
+    stock?: number;
 }
