@@ -3,29 +3,22 @@ import { sendErrorMailToAdmins } from "../db/helpers/mailer.handler";
 import { ApiResponse } from "../db/models/ApiResponse";
 import { Request, Response } from "express";
 import { getBooksQuery, getBookByUuid } from "../db/queries/book-queries";
-import { Book } from "../db/models/book";
+import { Book, BookFilterParams, BookQueryParams } from "../db/models/book";
 import { validate as isValidUUID } from 'uuid';
 import { getCategoryIdByUuid } from "../db/queries/category-queries";
+import { validateBookQueryParams } from "../db/validations/book-validations";
 
 export async function getBooks(req: Request, res: Response): Promise<ApiResponse<Book[]>> {
     const dbClient = await db.pool.connect();
-    const { categoryUUid } = req.query;
 
     try {
-        if (categoryUUid && typeof categoryUUid !== 'string') {
-            throw new Error('Category uuid must be a string');
-        }
         dbClient.query('BEGIN');
-        let categoryId: number | null = null;
-        if (categoryUUid) {
-            if (!isValidUUID(categoryUUid)) {
-                throw new Error('Invalid UUID format'); // Or custom error class
-            }
-            categoryId = await getCategoryIdByUuid(dbClient, categoryUUid);
-            if (!categoryId) throw new Error('This category doesnt exist in database!');
-        }
 
-        const books = await getBooksQuery(dbClient, categoryId);
+        const rawQueryParams: BookQueryParams = req.query as BookQueryParams;
+        const filters: BookFilterParams = await validateBookQueryParams(rawQueryParams, dbClient);
+
+        const books = await getBooksQuery(dbClient, filters);
+        
         dbClient.query('COMMIT');
 
         return {

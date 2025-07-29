@@ -9,3 +9,11 @@ export interface Book {
     imgSrc: string;
     scrapedUrl?: string;
 }
+
+export interface BookQueryParams {
+    categoryUUid?: string
+}
+
+export interface BookFilterParams {
+    categoryId?: number;
+}

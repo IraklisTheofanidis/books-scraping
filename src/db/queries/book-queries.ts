@@ -1,5 +1,5 @@
 import { PoolClient } from "pg";
-import { Book } from "../models/book";
+import { Book, BookFilterParams } from "../models/book";
 
 export const getBookByUuid = async (
     dbClient: PoolClient,
@@ -13,14 +13,14 @@ export const getBookByUuid = async (
     return result.rows[0] ?? null;
 };
 
-export const getBooksQuery = async (dbClient: PoolClient, categoryId: number | null): Promise<Book[]> => {
+export const getBooksQuery = async (dbClient: PoolClient, filters: BookFilterParams): Promise<Book[]> => {
     let query = 'SELECT * FROM books';
     const params: any[] = [];
     const conditions: string[] = [];
 
-    if (categoryId) {
+    if (filters.categoryId) {
         conditions.push(`category_id = $${params.length + 1}`);
-        params.push(categoryId);
+        params.push(filters.categoryId);
     }
 
     // Add WHERE clause if there are any filters
